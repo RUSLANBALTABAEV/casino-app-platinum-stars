@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" fill="none">
+  <rect width="240" height="240" rx="32" fill="#0B1224"/>
+  <circle cx="120" cy="120" r="86" fill="url(#snowGlow)" opacity="0.6"/>
+  <g stroke="#8BE7FF" stroke-width="6" stroke-linecap="round">
+    <path d="M120 44v152"/>
+    <path d="M44 120h152"/>
+    <path d="M72 72l96 96"/>
+    <path d="M168 72l-96 96"/>
+  </g>
+  <g stroke="#CFF6FF" stroke-width="4" stroke-linecap="round" opacity="0.9">
+    <path d="M120 64l-10 12M120 64l10 12"/>
+    <path d="M120 176l-10-12M120 176l10-12"/>
+    <path d="M64 120l12-10M64 120l12 10"/>
+    <path d="M176 120l-12-10M176 120l-12 10"/>
+  </g>
+  <defs>
+    <radialGradient id="snowGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(120 120) rotate(90) scale(86)">
+      <stop stop-color="#3FA9F5"/>
+      <stop offset="1" stop-color="#0B1224" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>

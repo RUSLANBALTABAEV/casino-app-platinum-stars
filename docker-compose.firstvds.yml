@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: casino_postgres
+    environment:
+      POSTGRES_USER: casino
+      POSTGRES_PASSWORD: casino_pass_2026
+      POSTGRES_DB: casino
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casino"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: casino_web
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env.production
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  bot:
+    image: python:3.11-slim
+    container_name: casino_bot
+    working_dir: /app
+    volumes:
+      - ./ASTROBOT:/app
+    command: sh -c "pip install -r requirements.txt -q && python bot.py"
+    env_file: ASTROBOT/.env.production
+    ports:
+      - "8081:8081"
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

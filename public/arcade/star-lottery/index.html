@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      name="viewport"
+    />
+    <title>Star Lottery — Platinum Stars</title>
+    <link href="./styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="lottery-root" id="lottery-root">
+      <header class="lottery-header">
+        <div>
+          <p class="mini-label">Daily Jack</p>
+          <h1>Star Lottery</h1>
+          <p class="sub-text" id="lottery-subtext">
+            Выберите тариф лотереи, собирайте участников и делите призовой фонд с победителями.
+          </p>
+        </div>
+        <div class="pool-selector" id="lottery-pools"></div>
+        <div class="stat-pills">
+          <div class="pill">
+            <span class="pill-label">Ваш баланс</span>
+            <span class="pill-value" id="lottery-balance">120 ★</span>
+          </div>
+          <div class="pill">
+            <span class="pill-label">Банк розыгрыша</span>
+            <span class="pill-value" id="lottery-pot">0 ★</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="lottery-content">
+        <section class="lottery-board">
+          <div class="board-card">
+            <div class="progress-header">
+              <h2>Участники</h2>
+              <span class="progress-label" id="participant-count">0 / 50</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p class="progress-description">
+              Каждому билету присваивается уникальный номер. После достижения 50 билетов запускается
+              автоматический тираж.
+            </p>
+            <button class="buy-btn" id="btn-buy-ticket" type="button">
+              Купить билет за 2 ★
+            </button>
+            <div class="ticket-list" id="ticket-list"></div>
+          </div>
+          <div class="board-card">
+            <h2>Последний победитель</h2>
+            <div class="winner-card" id="winner-card">
+              <p class="winner-name" id="winner-name">Победитель ещё не определён</p>
+              <p class="winner-meta" id="winner-meta">
+                Покупайте билеты, чтобы стать первым победителем!
+              </p>
+            </div>
+            <button class="link-btn" id="btn-simulate" type="button">
+              Заполнить участниками
+            </button>
+          </div>
+        </section>
+
+        <section class="history-card">
+          <div class="history-header">
+            <h3>История тиражей</h3>
+            <button class="link-btn" id="btn-clear-history" type="button">Очистить</button>
+          </div>
+          <div class="history-feed" id="lottery-history">
+            <p class="history-placeholder">Участвуйте в розыгрыше, чтобы увидеть результаты.</p>
+          </div>
+        </section>
+      </main>
+
+      <div class="toast" id="lottery-toast">
+        <span id="lottery-toast-message"></span>
+      </div>
+    </div>
+
+    <script type="module">
+      const root = document.getElementById('lottery-root');
+      const toast = document.getElementById('lottery-toast');
+      const toastMessage = document.getElementById('lottery-toast-message');
+      const pendingConfigs = [];
+      let applyConfigFn = null;
+
+      function showToast(message) {
+        toastMessage.textContent = message;
+        toast.classList.add('is-visible');
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
+          toast.classList.remove('is-visible');
+        }, 2200);
+      }
+
+      const elements = {
+        balance: document.getElementById('lottery-balance'),
+        pot: document.getElementById('lottery-pot'),
+        participantCount: document.getElementById('participant-count'),
+        progressFill: document.getElementById('progress-fill'),
+        ticketList: document.getElementById('ticket-list'),
+        history: document.getElementById('lottery-history'),
+        winnerName: document.getElementById('winner-name'),
+        winnerMeta: document.getElementById('winner-meta'),
+        subtitle: document.getElementById('lottery-subtext'),
+        poolSelector: document.getElementById('lottery-pools')
+      };
+
+      const buttons = {
+        buyTicket: document.getElementById('btn-buy-ticket'),
+        clearHistory: document.getElementById('btn-clear-history'),
+        simulate: document.getElementById('btn-simulate')
+      };
+
+      window.addEventListener('message', (event) => {
+        if (!event || !event.data) {
+          return;
+        }
+        const { type, payload } = event.data;
+        if (type === 'STAR_LOTTERY_CONFIG') {
+          if (applyConfigFn) {
+            try {
+              applyConfigFn(payload);
+            } catch (error) {
+              console.error('Failed to apply lottery config', error);
+              showToast('Ошибка конфигурации лотерей');
+            }
+          } else {
+            pendingConfigs.push(payload);
+          }
+        }
+      });
+
+      const PYODIDE_URL =
+        'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.mjs';
+      const PYODIDE_INDEX = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
+
+      async function bootstrap() {
+        const { loadPyodide } = await import(PYODIDE_URL);
+        const pyodide = await loadPyodide({
+          indexURL: PYODIDE_INDEX,
+          stdout: (text) => console.info('[Lottery]', text),
+          stderr: (text) => console.warn('[Lottery]', text)
+        });
+
+        await pyodide.registerJsModule('lottery_ui', {
+          showToast,
+          root,
+          elements,
+          buttons
+        });
+
+        const source = await fetch('./lottery.py').then((response) => {
+          if (!response.ok) {
+            throw new Error('Не удалось загрузить сценарий лотереи');
+          }
+          return response.text();
+        });
+
+        await pyodide.runPythonAsync(source);
+
+        const applyConfig = pyodide.globals.get('apply_lottery_config');
+        applyConfigFn = (config) => {
+          if (!config) {
+            return;
+          }
+          try {
+            applyConfig(config);
+          } catch (error) {
+            console.error('Failed to passthrough lottery config', error);
+            showToast('Ошибка применения конфигурации лотерей');
+          }
+        };
+
+        if (pendingConfigs.length) {
+          for (const config of pendingConfigs.splice(0)) {
+            applyConfigFn(config);
+          }
+        }
+      }
+
+      bootstrap().catch((error) => {
+        console.error(error);
+        showToast('Ошибка загрузки Star Lottery');
+        root.classList.add('state-error');
+      });
+    </script>
+  </body>
+</html>

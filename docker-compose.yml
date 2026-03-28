@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: casino_postgres
+    environment:
+      POSTGRES_USER: casino
+      POSTGRES_PASSWORD: casino
+      POSTGRES_DB: casino
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casino"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: casino_web
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://casino:casino@postgres:5432/casino?schema=public
+      DATABASE_URL_UNPOOLED: postgresql://casino:casino@postgres:5432/casino?schema=public
+      SHADOW_DATABASE_URL: postgresql://casino:casino@postgres:5432/casino?schema=public
+      NODE_ENV: production
+      TELEGRAM_MINI_APP_URL: https://astrogame-io.ru
+      NEXT_PUBLIC_MINI_APP_URL: https://astrogame-io.ru
+      ADMIN_SECRET: ${ADMIN_SECRET}
+      DEBUG_API: "0"
+      ENABLE_ADMIN_DRAIN: "0"
+    ports:
+      - "3000:3000"
+    user: "node"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    pids_limit: 200
+    mem_limit: 512m
+    cpus: "1.0"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

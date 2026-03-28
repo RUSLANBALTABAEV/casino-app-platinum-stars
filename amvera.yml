@@ -1,0 +1,18 @@
+meta:
+  environment: node
+  toolchain:
+    name: npm
+    version: "20"
+build:
+  skip: false
+  additionalCommands: npm install && npx prisma generate && npm run build
+  artifacts:
+    "*": /
+run:
+  persistenceMount: /data
+  scriptName: ""
+  scriptArguments: null
+  nodeArguments: null
+  command: npx prisma db push --accept-data-loss && npm run start -- -p 3000
+  containerPort: 3000
+  servicePort: 80

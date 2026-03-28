@@ -1,0 +1,616 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DATABASE_URL_UNPOOLED")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id                   String                 @id @default(cuid())
+  telegramId           BigInt                 @unique
+  username             String?                @unique @db.VarChar(64)
+  firstName            String?                @db.VarChar(128)
+  lastName             String?                @db.VarChar(128)
+  languageCode         String?                @db.Char(5)
+  isPremium            Boolean                @default(false)
+  isAdmin              Boolean                @default(false)
+  adminBoostEnabled    Boolean                @default(false)
+  status               UserStatus             @default(STANDARD)
+  statusExpiresAt      DateTime?
+  isBanned             Boolean                @default(false)
+  avatarUrl            String?
+  referralCode         String                 @unique @default(uuid()) @db.VarChar(64)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  gameSessions         GameSession[]
+  promoCodes           PromoRedemption[]
+  referralRecord       Referral?              @relation("ReferralInvitee")
+  referralsSent        Referral[]             @relation("ReferralInviter")
+  securityEvents       SecurityEvent[]
+  balances             StarBalance?
+  transactions         Transaction[]
+  tasks                UserTask[]
+  processedWithdrawals Withdrawal[]           @relation("WithdrawalProcessor")
+  withdrawals          Withdrawal[]
+  processedNftOrders   NftShopOrder[]         @relation("NftShopProcessor")
+  caseRewards          CaseReward[]
+  lotteryEntries       LotteryEntry[]
+  lotteryResults       LotteryResult[]
+  adminOperations      AdminDrainOperation[]
+  depositRequests      ManualDepositRequest[]
+  processedDeposits    ManualDepositRequest[] @relation("ManualDepositProcessor")
+  adminSettings        AdminSettings?
+  adminSessions        AdminSession[]
+  dailyGiftClaims      DailyGiftClaim[]
+  onlinePresence       OnlinePresence?
+  nftGifts             UserNftGift[]
+  NftShopOrder         NftShopOrder[]
+}
+
+model StarBalance {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  available          Int      @default(0)
+  reserved           Int      @default(0)
+  lifetimeEarn       Int      @default(0)
+  lifetimeSpend      Int      @default(0)
+  bonusAvailable     Int      @default(0)
+  bonusReserved      Int      @default(0)
+  bonusLifetimeEarn  Int      @default(0)
+  bonusLifetimeSpend Int      @default(0)
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id          String            @id @default(cuid())
+  userId      String
+  type        TransactionType
+  amount      Int
+  currency    String            @default("RUB")
+  provider    PaymentProvider   @default(YOOKASSA)
+  providerRef String?           @db.VarChar(128)
+  status      TransactionStatus
+  meta        Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([providerRef])
+}
+
+model PromoCode {
+  id                 String            @id @default(cuid())
+  code               String            @unique @db.VarChar(64)
+  description        String?           @db.VarChar(256)
+  starReward         Int               @default(0)
+  bonusPercent       Int               @default(0)
+  grantsStatus       UserStatus?
+  statusDurationDays Int?
+  usageLimit         Int?
+  perUserLimit       Int               @default(1)
+  validFrom          DateTime?
+  validTo            DateTime?
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  redemptions        PromoRedemption[]
+
+  @@index([isActive, validFrom, validTo])
+}
+
+model PromoRedemption {
+  id         String    @id @default(cuid())
+  userId     String
+  promoId    String
+  redeemedAt DateTime  @default(now())
+  reward     Int       @default(0)
+  promo      PromoCode @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, promoId])
+  @@index([promoId])
+}
+
+model Task {
+  id             String     @id @default(cuid())
+  slug           String     @unique @db.VarChar(64)
+  title          String     @db.VarChar(160)
+  description    String?    @db.VarChar(512)
+  reward         Int        @default(0)
+  sponsorLink    String?    @db.VarChar(512)
+  isActive       Boolean    @default(true)
+  requiredProof  Boolean    @default(false)
+  maxCompletions Int?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  completions    UserTask[]
+}
+
+model UserTask {
+  id        String     @id @default(cuid())
+  userId    String
+  taskId    String
+  status    TaskStatus
+  proofUrl  String?    @db.VarChar(512)
+  note      String?    @db.VarChar(512)
+  awardedAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskId])
+  @@index([status])
+}
+
+model DailyGiftClaim {
+  id        String   @id @default(cuid())
+  userId    String
+  claimDay  DateTime
+  streak    Int      @default(1)
+  reward    Int      @default(0)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, claimDay])
+  @@index([userId, createdAt])
+}
+
+model OnlinePresence {
+  userId     String   @id
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lastSeenAt])
+}
+
+model GameSession {
+  id         String    @id @default(cuid())
+  userId     String?
+  gameType   GameType
+  score      Int?
+  distance   Int?
+  wager      Int?      @default(0)
+  payout     Int?      @default(0)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  metadata   Json?
+  user       User?     @relation(fields: [userId], references: [id])
+
+  @@index([userId, gameType])
+}
+
+model LotteryEntry {
+  id         String         @id @default(cuid())
+  userId     String
+  poolId     String
+  poolName   String         @db.VarChar(160)
+  ticketCost Int
+  createdAt  DateTime       @default(now())
+  result     LotteryResult?
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([poolId, createdAt])
+}
+
+model LotteryResult {
+  id        String       @id @default(cuid())
+  entryId   String       @unique
+  userId    String
+  poolId    String
+  poolName  String       @db.VarChar(160)
+  position  Int
+  prize     Int
+  createdAt DateTime     @default(now())
+  entry     LotteryEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([poolId, createdAt])
+}
+
+model Broadcast {
+  id              String          @id @default(cuid())
+  title           String          @db.VarChar(160)
+  message         String
+  segment         String?         @db.VarChar(64)
+  status          BroadcastStatus @default(PENDING)
+  totalRecipients Int             @default(0)
+  delivered       Int             @default(0)
+  failed          Int             @default(0)
+  createdAt       DateTime        @default(now())
+  sentAt          DateTime?
+}
+
+model GameSetting {
+  id        String   @id @default(cuid())
+  gameType  GameType
+  key       String   @db.VarChar(64)
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameType, key])
+}
+
+model SecurityEvent {
+  id        String           @id @default(cuid())
+  type      String           @db.VarChar(64)
+  severity  SecuritySeverity @default(INFO)
+  message   String           @db.VarChar(256)
+  metadata  Json?
+  userId    String?
+  createdAt DateTime         @default(now())
+  user      User?            @relation(fields: [userId], references: [id])
+
+  @@index([type])
+  @@index([createdAt])
+}
+
+model StatusPlan {
+  id           String     @id @default(cuid())
+  slug         String     @unique @db.VarChar(64)
+  name         String     @db.VarChar(120)
+  description  String?    @db.VarChar(256)
+  tier         UserStatus
+  price        Int        @default(0)
+  currency     String     @default("RUB") @db.VarChar(16)
+  durationDays Int?
+  benefits     Json?
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([tier])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(64)
+  description String?  @db.VarChar(256)
+  value       Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Referral {
+  id           String    @id @default(cuid())
+  inviterId    String
+  inviteeId    String    @unique
+  rewardIssued Boolean   @default(false)
+  rewardAmount Int       @default(0)
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+  invitee      User      @relation("ReferralInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  inviter      User      @relation("ReferralInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([inviterId])
+}
+
+model Withdrawal {
+  id            String             @id @default(cuid())
+  userId        String
+  amount        Int
+  currency      WithdrawalCurrency @default(STARS)
+  destination   String             @db.VarChar(160)
+  status        WithdrawalStatus   @default(PENDING)
+  type          WithdrawalType     @default(STARS)
+  comment       String?            @db.VarChar(512)
+  meta          Json?
+  createdAt     DateTime           @default(now())
+  processedAt   DateTime?
+  processedById String?
+  processedBy   User?              @relation("WithdrawalProcessor", fields: [processedById], references: [id])
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([createdAt])
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  REWARD
+  PURCHASE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  YOOKASSA
+  TELEGRAM_STARS
+  MANUAL
+}
+
+enum TaskStatus {
+  PENDING
+  REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum GameType {
+  RUNNER
+  ROULETTE
+  LOTTERY
+  CASE
+  BONUS
+  CRASH
+  MINES
+  COINFLIP
+  TICTACTOE
+  UPGRADE
+  BATTLE
+  CRAFT
+}
+
+model CaseReward {
+  id        String   @id @default(cuid())
+  userId    String
+  caseId    String
+  caseName  String   @db.VarChar(160)
+  itemId    String?
+  itemName  String   @db.VarChar(160)
+  rarity    String   @db.VarChar(64)
+  color     String?  @db.VarChar(32)
+  stars     Int?
+  nftGiftId String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nftGift   NftGift? @relation(fields: [nftGiftId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model NftGift {
+  id             String             @id @default(cuid())
+  telegramGiftId String?            @db.VarChar(64)
+  name           String             @db.VarChar(160)
+  rarity         String             @db.VarChar(64)
+  description    String?            @db.VarChar(256)
+  imageUrl       String?            @db.VarChar(512)
+  priceStars     Int?
+  priceBonus     Int?
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  caseRewards    CaseReward[]
+  userGifts      UserNftGift[]
+  inventoryItems NftInventoryItem[]
+  shopOrders     NftShopOrder[]
+
+  @@index([rarity])
+  @@index([isActive])
+}
+
+model UserNftGift {
+  id         String         @id @default(cuid())
+  userId     String
+  giftId     String
+  status     NftGiftStatus  @default(OWNED)
+  source     String?        @db.VarChar(64)
+  metadata   Json?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gift       NftGift        @relation(fields: [giftId], references: [id], onDelete: Cascade)
+  shopOrders NftShopOrder[] @relation("NftShopUserGift")
+
+  @@index([userId, status])
+  @@index([giftId])
+}
+
+model NftInventoryItem {
+  id             String             @id @default(cuid())
+  giftId         String
+  status         NftInventoryStatus @default(IN_STOCK)
+  telegramGiftId String?            @db.VarChar(64)
+  source         String?            @db.VarChar(64)
+  notes          String?            @db.VarChar(256)
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  gift           NftGift            @relation(fields: [giftId], references: [id], onDelete: Cascade)
+  assignedOrders NftShopOrder[]     @relation("NftOrderItem")
+
+  @@index([status])
+  @@index([giftId, status])
+}
+
+model NftShopOrder {
+  id             String             @id @default(cuid())
+  userId         String
+  giftId         String
+  type           NftShopOrderType   @default(BUY)
+  status         NftShopOrderStatus @default(PENDING)
+  priceStars     Int
+  feeStars       Int                @default(0)
+  totalStars     Int
+  source         String?            @db.VarChar(32)
+  notes          String?            @db.VarChar(256)
+  metadata       Json?
+  assignedItemId String?
+  userGiftId     String?
+  processedById  String?
+  approvedAt     DateTime?
+  declinedAt     DateTime?
+  fulfilledAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gift           NftGift            @relation(fields: [giftId], references: [id], onDelete: Cascade)
+  assignedItem   NftInventoryItem?  @relation("NftOrderItem", fields: [assignedItemId], references: [id])
+  userGift       UserNftGift?       @relation("NftShopUserGift", fields: [userGiftId], references: [id])
+  processedBy    User?              @relation("NftShopProcessor", fields: [processedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([giftId])
+}
+
+model BattleMatch {
+  id           String       @id @default(cuid())
+  status       BattleStatus @default(PENDING)
+  currency     String       @default("STARS") @db.VarChar(16)
+  entries      Json
+  winnerUserId String?
+  createdAt    DateTime     @default(now())
+  completedAt  DateTime?
+
+  @@index([status, createdAt])
+}
+
+enum NftGiftStatus {
+  OWNED
+  PENDING_SEND
+  SENT
+  STAKED
+  CRAFTED
+  SOLD
+}
+
+enum NftInventoryStatus {
+  IN_STOCK
+  RESERVED
+  SENT
+}
+
+enum NftShopOrderStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  FULFILLED
+}
+
+enum NftShopOrderType {
+  BUY
+  SELL
+}
+
+enum BattleStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum BroadcastStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum SecuritySeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum UserStatus {
+  STANDARD
+  PREMIUM
+}
+
+enum WithdrawalType {
+  STARS
+  NFT_GIFT
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SENT
+}
+
+enum WithdrawalCurrency {
+  STARS
+  XTR
+  USD
+  EUR
+}
+
+model AdminSettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  totpSecret      String?  @db.VarChar(64)
+  totpEnabled     Boolean  @default(false)
+  totpBackupCodes String[] // Array of backup codes
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AdminSession {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique @db.VarChar(128)
+  tokenHash  String   @db.VarChar(128)
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.VarChar(512)
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+model AdminDrainOperation {
+  id            String   @id @default(cuid())
+  performedBy   String
+  totalStars    Int      @default(0)
+  affectedUsers Int      @default(0)
+  description   String?  @db.VarChar(512)
+  createdAt     DateTime @default(now())
+  admin         User     @relation(fields: [performedBy], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model ManualDepositRequest {
+  id             String              @id @default(cuid())
+  userId         String
+  stars          Int
+  rubAmount      Int
+  paymentPurpose String?             @db.VarChar(64)
+  receiptFileId  String?             @db.VarChar(256)
+  receiptType    String?             @db.VarChar(32)
+  status         ManualDepositStatus @default(PENDING)
+  adminNote      String?             @db.VarChar(512)
+  processedById  String?
+  processedAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  processedBy    User?               @relation("ManualDepositProcessor", fields: [processedById], references: [id])
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+enum ManualDepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}

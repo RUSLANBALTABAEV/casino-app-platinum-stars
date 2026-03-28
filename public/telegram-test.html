@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram WebApp Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+        .warning { background: #fff3cd; border-color: #ffc107; }
+        .error { background: #f8d7da; border-color: #dc3545; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Telegram WebApp Data Test</h1>
+
+        <div id="status" class="section">
+            <h3>Статус Telegram WebApp</h3>
+            <p id="webapp-status">Проверяется...</p>
+        </div>
+
+        <div class="section">
+            <h3>Доступные команды в Console:</h3>
+            <button onclick="checkWebApp()">Проверить WebApp</button>
+            <button onclick="showUserData()">Показать данные пользователя</button>
+            <button onclick="showInitData()">Показать InitData</button>
+            <button onclick="testSignature()">Проверить подпись</button>
+        </div>
+
+        <div id="user-data" class="section">
+            <h3>Данные пользователя</h3>
+            <pre id="user-json">Загружается...</pre>
+        </div>
+
+        <div id="init-data" class="section">
+            <h3>InitData</h3>
+            <pre id="init-data-json">Загружается...</pre>
+        </div>
+
+        <div id="signature-test" class="section">
+            <h3>Проверка подписи</h3>
+            <pre id="signature-result">Не проверено</pre>
+        </div>
+
+        <div class="section warning">
+            <h3>📋 Инструкция:</h3>
+            <ol>
+                <li>Откройте эту страницу в Telegram Web App</li>
+                <li>Нажмите кнопки выше для тестирования</li>
+                <li>Или используйте команды в браузерной консоли</li>
+                <li>Сравните данные с тем, что получает приложение</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные функции для консоли
+        window.checkWebApp = function() {
+            const tg = window.Telegram?.WebApp;
+            console.log('=== WebApp Check ===');
+            console.log('Available:', !!tg);
+            console.log('Object:', tg);
+            return tg;
+        };
+
+        window.showUserData = function() {
+            const user = window.Telegram?.WebApp?.user;
+            console.log('=== User Data ===');
+            console.log('User:', user);
+            return user;
+        };
+
+        window.showInitData = function() {
+            const initData = window.Telegram?.WebApp?.initData;
+            console.log('=== InitData ===');
+            console.log('Length:', initData?.length || 0);
+            console.log('Data:', initData);
+            return initData;
+        };
+
+        window.testSignature = function() {
+            const initData = window.Telegram?.WebApp?.initData;
+            console.log('=== Signature Test ===');
+            console.log('Would validate:', initData ? 'Yes' : 'No (no initData)');
+            return initData;
+        };
+
+        // Автоматическая проверка при загрузке
+        function init() {
+            const tg = window.Telegram?.WebApp;
+            const statusEl = document.getElementById('webapp-status');
+            const userEl = document.getElementById('user-json');
+            const initDataEl = document.getElementById('init-data-json');
+
+            if (tg) {
+                statusEl.innerHTML = '<span style="color: green;">✅ Доступен</span>';
+                statusEl.parentElement.className = 'section success';
+
+                if (tg.user) {
+                    userEl.textContent = JSON.stringify(tg.user, null, 2);
+                } else {
+                    userEl.textContent = 'Данные пользователя недоступны';
+                }
+
+                if (tg.initData) {
+                    initDataEl.textContent = tg.initData.length > 200 ?
+                        tg.initData.substring(0, 200) + '...' :
+                        tg.initData;
+                } else {
+                    initDataEl.textContent = 'InitData недоступна';
+                }
+
+                // Инициализация WebApp
+                try {
+                    tg.ready();
+                    console.log('WebApp initialized');
+                } catch (e) {
+                    console.error('WebApp init error:', e);
+                }
+            } else {
+                statusEl.innerHTML = '<span style="color: red;">❌ Недоступен (откройте в Telegram)</span>';
+                statusEl.parentElement.className = 'section error';
+                userEl.textContent = 'Недоступно вне Telegram';
+                initDataEl.textContent = 'Недоступно вне Telegram';
+            }
+        }
+
+        // Инициализация
+        window.addEventListener('load', init);
+
+        // Вывод в консоль доступных команд
+        console.log('=== Telegram WebApp Test Page ===');
+        console.log('Доступные команды:');
+        console.log('- checkWebApp()');
+        console.log('- showUserData()');
+        console.log('- showInitData()');
+        console.log('- testSignature()');
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+

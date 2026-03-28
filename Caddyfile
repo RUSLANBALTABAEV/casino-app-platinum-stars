@@ -1,0 +1,14 @@
+# Global options
+{
+	# По желанию: почта для ACME (Let's Encrypt) уведомлений
+	email {$CADDY_EMAIL}
+}
+
+# Домен для приложения (обязательно укажите реальный домен через переменную окружения CADDY_DOMAIN)
+{$CADDY_DOMAIN} {
+	encode zstd gzip
+	# Проксируем HTTP(S) трафик к next.js приложению в контейнере web
+	reverse_proxy web:3000
+}
+
+

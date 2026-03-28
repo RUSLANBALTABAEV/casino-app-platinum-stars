@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      name="viewport"
+    />
+    <title>Star Crash — Platinum Stars</title>
+    <link href="./styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="crash-root" id="crash-root">
+      <header class="crash-header">
+        <div>
+          <p class="mini-label">Multiplier Run</p>
+          <h1>Star Crash</h1>
+          <p class="sub-text">
+            Запускайте множитель, забирайте выигрыш вовремя. Чем дольше ждёте, тем выше шанс
+            обрушения.
+          </p>
+        </div>
+        <div class="stat-pills">
+          <div class="pill">
+            <span class="pill-label">Баланс</span>
+            <span class="pill-value" id="crash-balance">300 ★</span>
+          </div>
+          <div class="pill">
+            <span class="pill-label">Ставка</span>
+            <span class="pill-value" id="crash-bet-display">50 ★</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="crash-main">
+        <section class="chart-card">
+          <div class="chart-header">
+            <h2 id="multiplier-label">x1.00</h2>
+            <span class="status-badge" id="round-status">Ожидание</span>
+          </div>
+          <canvas class="crash-canvas" id="crash-canvas" width="320" height="220"></canvas>
+        </section>
+
+        <section class="control-card">
+          <h3>Управление ставкой</h3>
+          <div class="bet-controls">
+            <label class="bet-field">
+              Ставка
+              <div class="bet-input">
+                <input id="bet-input" type="number" min="1" max="500" value="50" />
+                <span>★</span>
+              </div>
+            </label>
+            <div class="quick-buttons">
+              <button class="chip-btn" data-bet="25" type="button">25</button>
+              <button class="chip-btn" data-bet="50" type="button">50</button>
+              <button class="chip-btn" data-bet="100" type="button">100</button>
+              <button class="chip-btn" data-bet="200" type="button">200</button>
+            </div>
+          </div>
+          <div class="crash-actions">
+            <button class="start-btn" id="btn-start-round" type="button">
+              Запуск
+            </button>
+            <button class="cashout-btn" id="btn-cashout" type="button" disabled>
+              Забрать
+            </button>
+          </div>
+          <p class="hint">
+            Crash начинается через несколько секунд после запуска. Заберите выигрыш до обрушения,
+            иначе ставка сгорит.
+          </p>
+        </section>
+
+        <section class="history-card">
+          <div class="history-header">
+            <h3>Результаты раундов</h3>
+            <button class="link-btn" id="btn-clear-history" type="button">Очистить</button>
+          </div>
+          <div class="history-feed" id="crash-history">
+            <p class="history-placeholder">Запустите раунд, чтобы увидеть результаты.</p>
+          </div>
+        </section>
+      </main>
+
+      <div class="toast" id="crash-toast">
+        <span id="crash-toast-message"></span>
+      </div>
+    </div>
+
+    <script type="module" src="./crash.js"></script>
+  </body>
+</html>

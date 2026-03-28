@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      name="viewport"
+    />
+    <title>Star Cases — Platinum Stars</title>
+    <link href="./styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="cases-root" id="cases-root">
+      <header class="cases-header">
+        <div>
+          <p class="mini-label">Legendary Vault</p>
+          <h1>Star Cases</h1>
+          <p class="sub-text">
+            Открывайте тематические кейсы и пополняйте коллекцию редких артефактов.
+          </p>
+        </div>
+        <div class="balance-pills">
+          <div class="pill">
+            <span class="pill-label">Баланс</span>
+            <span class="pill-value" id="cases-balance">1 500 ★</span>
+          </div>
+          <div class="pill">
+            <span class="pill-label">Коллекция</span>
+            <span class="pill-value" id="cases-inventory">0 предметов</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="cases-main">
+        <section class="cases-viewport">
+          <div class="cases-sidebar">
+            <h2>Линейки кейсов</h2>
+            <div class="cases-grid" id="cases-grid"></div>
+            <div class="balance-pills is-mobile">
+              <div class="pill">
+                <span class="pill-label">Баланс</span>
+                <span class="pill-value" id="cases-balance-mobile">1 500 ★</span>
+              </div>
+              <div class="pill">
+                <span class="pill-label">Коллекция</span>
+                <span class="pill-value" id="cases-inventory-mobile">0 предметов</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cases-preview">
+            <div class="preview-card">
+              <div class="preview-header">
+                <h3 id="preview-title">Astro Explorer</h3>
+                <span class="price-tag" id="preview-price">Стоимость: 120 ★</span>
+              </div>
+              <p class="preview-description" id="preview-description">
+                Изучите глубокий космос и соберите экипировку первооткрывателя.
+              </p>
+              <div class="loot-list" id="preview-loot"></div>
+              <button class="open-btn" id="btn-open-case" type="button">
+                Открыть кейс
+              </button>
+            </div>
+          </div>
+
+        <section class="history-card">
+          <div class="history-header">
+            <h4>История дропа</h4>
+            <button class="link-btn" id="btn-clear-history" type="button">
+              Очистить
+            </button>
+          </div>
+          <div class="history-feed" id="history-feed">
+            <p class="history-placeholder">Откройте кейс, чтобы увидеть результаты.</p>
+          </div>
+        </section>
+      </main>
+
+      <div class="toast" id="cases-toast">
+        <span id="cases-toast-message"></span>
+      </div>
+    </div>
+
+    <script type="module">
+      const root = document.getElementById('cases-root');
+      const toast = document.getElementById('cases-toast');
+      const toastMessage = document.getElementById('cases-toast-message');
+      const pendingConfigs = [];
+      let applyConfigFn = null;
+
+      function showToast(message) {
+        toastMessage.textContent = message;
+        toast.classList.add('is-visible');
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
+          toast.classList.remove('is-visible');
+        }, 2200);
+      }
+
+      const elements = {
+        grid: document.getElementById('cases-grid'),
+        balance: document.getElementById('cases-balance'),
+        inventory: document.getElementById('cases-inventory'),
+        balanceMobile: document.getElementById('cases-balance-mobile'),
+        inventoryMobile: document.getElementById('cases-inventory-mobile'),
+        previewTitle: document.getElementById('preview-title'),
+        previewPrice: document.getElementById('preview-price'),
+        previewDescription: document.getElementById('preview-description'),
+        previewLoot: document.getElementById('preview-loot'),
+        history: document.getElementById('history-feed')
+      };
+
+      const buttons = {
+        openCase: document.getElementById('btn-open-case'),
+        clearHistory: document.getElementById('btn-clear-history')
+      };
+
+      window.addEventListener('message', (event) => {
+        if (!event || !event.data) {
+          return;
+        }
+        const { type, payload } = event.data;
+        if (type === 'STAR_CASES_CONFIG') {
+          if (applyConfigFn) {
+            try {
+              applyConfigFn(payload);
+            } catch (error) {
+              console.error('Failed to apply cases config', error);
+              showToast('Ошибка конфигурации кейсов');
+            }
+          } else {
+            pendingConfigs.push(payload);
+          }
+        }
+      });
+
+      const PYODIDE_URL =
+        'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.mjs';
+      const PYODIDE_INDEX = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
+
+      async function bootstrap() {
+        const { loadPyodide } = await import(PYODIDE_URL);
+        const pyodide = await loadPyodide({
+          indexURL: PYODIDE_INDEX,
+          stdout: (text) => console.info('[Cases]', text),
+          stderr: (text) => console.warn('[Cases]', text)
+        });
+
+        await pyodide.registerJsModule('cases_ui', {
+          showToast,
+          root,
+          elements,
+          buttons
+        });
+
+        const source = await fetch('./cases.py').then((response) => {
+          if (!response.ok) {
+            throw new Error('Не удалось загрузить сценарий кейсов');
+          }
+          return response.text();
+        });
+
+        await pyodide.runPythonAsync(source);
+
+        const applyConfig = pyodide.globals.get('apply_case_config');
+        applyConfigFn = (config) => {
+          if (!config) {
+            return;
+          }
+          try {
+            applyConfig(config);
+          } catch (error) {
+            console.error('Failed to passthrough cases config', error);
+            showToast('Ошибка применения конфигурации кейсов');
+          }
+        };
+
+        if (pendingConfigs.length) {
+          for (const config of pendingConfigs.splice(0)) {
+            applyConfigFn(config);
+          }
+        }
+      }
+
+      bootstrap().catch((error) => {
+        console.error(error);
+        showToast('Ошибка загрузки Star Cases');
+        root.classList.add('state-error');
+      });
+    </script>
+  </body>
+</html>

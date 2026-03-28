@@ -1,0 +1,27 @@
+services:
+  web:
+    image: node:20-bookworm-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: >
+      sh -lc "
+        apt-get update &&
+        apt-get install -y --no-install-recommends openssl ca-certificates &&
+        rm -rf /var/lib/apt/lists/* &&
+        npm ci &&
+        npx prisma generate &&
+        npx prisma migrate deploy &&
+        npm run start -- -p 3000
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://casino:casino@postgres:5432/casino?schema=public
+      DATABASE_URL_UNPOOLED: postgresql://casino:casino@postgres:5432/casino?schema=public
+      SHADOW_DATABASE_URL: postgresql://casino:casino@postgres:5432/casino?schema=public
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
