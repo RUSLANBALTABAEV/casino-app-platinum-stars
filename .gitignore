@@ -34,17 +34,17 @@ backups/
 .env.production
 .env.*.local
 *.env.backup
+ASTROBOT/.env
+ASTROBOT/.env.*
+ASTROBOT/.env.deploy
+ASTROBOT/.env.local
+ASTROBOT/.env.production
 *.key
 *.pem
 *.p12
 *.pfx
 secrets/
 *.secret
-ASTROBOT/.env
-ASTROBOT/.env.deploy
-ASTROBOT/.env.local
-ASTROBOT/.env.production
-ASTROBOT/.env.*.local
 
 # Deployment scripts with secrets (use .safe versions instead)
 deploy-full.sh
